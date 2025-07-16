@@ -1,0 +1,100 @@
+# ===========================================
+# LINGUALEAP BACKEND .GITIGNORE
+# ===========================================
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+google-credentials.json
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+node_modules/
+jspm_packages/
+Lingualeap-App/
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+
+# Build outputs
+dist/
+build/
+
+# Firebase cache
+.firebase/
+firebase-debug.log
+
+# MongoDB
+*.mongodb
+
+# Test files
+test-results/
+
+# Uploaded files (if any)
+uploads/
+server/img/
+
+# Jest coverage
+coverage/
+
+# Vercel
+.vercel
+
+# Local development files
+server/data/seedData.js
+server/data/clearData.js
+server/data/models/simpleExercise.js
