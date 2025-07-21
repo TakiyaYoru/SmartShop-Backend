@@ -1,4 +1,4 @@
-// File: server/permissions.js - ALLOW CUSTOMER TO CANCEL THEIR OWN ORDERS
+// File: server/permissions.js - COMPLETE PERMISSIONS BASED ON SCAN RESULTS
 
 import { GraphQLError } from "graphql";
 
@@ -13,7 +13,25 @@ const PUBLIC_QUERIES = [
   'productsByBrandAndCategory',
   'searchProducts',
   'categories',
-  'brands'
+  'category',
+  'allCategories',
+  'brands',
+  'brand',
+  'brandByName',
+  'brandsByCategory',
+  'allBrands',
+  'featuredBrands',
+  'hello'
+];
+
+// Danh sách các mutations không cần authentication
+const PUBLIC_MUTATIONS = [
+  'login',
+  'register', 
+  'sendPasswordResetOTP',
+  'verifyOTPAndResetPassword',
+  'googleAuth', // ← GOOGLE AUTH PUBLIC
+  'sendMessage'
 ];
 
 const hasValidSecret = async (next, parent, args, ctx, info) => {
@@ -27,6 +45,11 @@ const hasValidSecret = async (next, parent, args, ctx, info) => {
 const isAuthenticated = async (next, parent, args, ctx, info) => {
   // Kiểm tra nếu là public query thì cho phép truy cập
   if (info && info.fieldName && PUBLIC_QUERIES.includes(info.fieldName)) {
+    return next();
+  }
+
+  // Kiểm tra nếu là public mutation thì cho phép truy cập
+  if (info && info.fieldName && PUBLIC_MUTATIONS.includes(info.fieldName)) {
     return next();
   }
 
@@ -60,7 +83,6 @@ const isAdminOrManager = async (next, parent, args, ctx, info) => {
   return next();
 };
 
-// ✅ NEW: Allow customers to cancel their own orders
 const canCancelOrder = async (next, parent, args, ctx, info) => {
   if (!ctx.user) {
     throw new GraphQLError("Authentication required.");
@@ -72,12 +94,14 @@ const canCancelOrder = async (next, parent, args, ctx, info) => {
   }
   
   // Customer can only cancel their own pending/confirmed orders
-  // Additional validation will be done in the resolver
   return next();
 };
 
 export const permissions = {
   Query: {
+    // Auth queries
+    me: isAuthenticated,
+    
     // Cart queries require authentication
     getCart: isAuthenticated,
     getCartItemCount: isAuthenticated,
@@ -90,7 +114,17 @@ export const permissions = {
     getAllOrders: isAdminOrManager,
     getOrder: isAdminOrManager,
     getOrderStats: isAdminOrManager,
+    
+    // Review queries
+    getProductReviews: isAuthenticated,
+    getProductAverageRating: isAuthenticated,
+    getProductReviewStats: isAuthenticated,
+    canUserReviewProduct: isAuthenticated,
     getAllReviewsForAdmin: isAdmin,
+    getPendingAdminReviews: isAdmin,
+    
+    // Chat queries
+    chatHistory: isAuthenticated,
   },
   
   Mutation: {
@@ -114,20 +148,33 @@ export const permissions = {
     uploadProductImage: isAdminOrManager,
     uploadProductImages: isAdminOrManager,
     removeProductImage: isAdminOrManager,
+    uploadReviewImages: isAuthenticated,
+    deleteReviewImages: isAuthenticated,
     
-    // Cart operations - Customer access required
+    // Cart operations require authentication
     addToCart: isAuthenticated,
-    updateCartItem: isAuthenticated,
+    updateCartItem: isAuthenticated, // ← FIXED FROM updateCartQuantity
     removeFromCart: isAuthenticated,
     clearCart: isAuthenticated,
     
     // Order operations
-    createOrderFromCart: isAuthenticated,     // Customer can create orders
-    updateOrderStatus: isAdminOrManager,      // Admin/Manager can update status
-    updatePaymentStatus: isAdminOrManager,    // Admin/Manager can update payment
-    cancelOrder: canCancelOrder,             // ✅ FIXED: Customer can cancel their own orders
-
+    createOrderFromCart: isAuthenticated,
+    updateOrderStatus: isAdminOrManager,
+    updatePaymentStatus: isAdminOrManager,
+    cancelOrder: canCancelOrder,
+    
+    // Review operations - FIXED NAMES
     createReview: isAuthenticated,
     adminReplyToReview: isAdmin,
+    deleteAdminReply: isAdmin,
+    
+    // Profile completion (for Google Auth users)
+    completeProfile: isAuthenticated,
+    
+    // Chat operations
+    searchProductsByVoice: isAuthenticated,
+    
+    // Authentication mutations are handled by PUBLIC_MUTATIONS list
+    // login, register, sendPasswordResetOTP, verifyOTPAndResetPassword, googleAuth - PUBLIC
   },
 };
