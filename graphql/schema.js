@@ -612,8 +612,10 @@ const completeTypeDefs = `
   }
 
   type QueryAnalysis {
-    intent: String!
-    category: String
+    brand: String
+    maxPrice: Float
+    minPrice: Float
+    features: [String!]
     priceRange: String
     targetUser: String
     keywords: [String!]
