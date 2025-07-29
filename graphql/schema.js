@@ -15,7 +15,10 @@ import { resolvers as ordersResolvers } from "./orders.js";
 import { resolvers as reviewsResolvers } from "./reviews.js";
 import { resolvers as reviewUploadResolvers } from "./reviewUpload.js";
 import { resolvers as chatResolvers } from "./chat.js";
+import { resolvers as productComparisonResolvers } from "./productComparison.js";
+// import { imageSearchResolvers } from "./imageSearch.js";
 import { resolvers as googleAuthResolvers } from "./googleAuth.js";
+import { analyzeImageWithAI, searchProductsByImageAnalysis } from "../services/imageAnalysisService.js";
 
 console.log('🔄 Perfect Schema - Loading with ALL resolvers...');
 
@@ -129,7 +132,7 @@ const completeTypeDefs = `
     removeProductImage(productId: ID!, filename: String!): Boolean!
     
     # Cart
-    addToCart(input: AddToCartInput!): CartItem
+    addToCart(input: CartInput!): CartItem
     updateCartItem(input: UpdateCartInput!): CartItem
     removeFromCart(productId: ID!): Boolean
     clearCart: Boolean
@@ -150,6 +153,12 @@ const completeTypeDefs = `
     # Chat
     sendMessage(input: ChatInput!): ChatResponse!
     searchProductsByVoice(audioUrl: String!): ChatResponse!
+    
+    # Product Comparison
+    compareProducts(input: CompareProductsInput!): ProductComparison!
+    
+    # Image Search
+    searchByImage(input: ImageSearchInput!): ImageSearchResult!
   }
 
   # ===== GOOGLE AUTH TYPES =====
@@ -413,12 +422,13 @@ const completeTypeDefs = `
   type CartItem {
     _id: ID!
     userId: ID!
-    product: Product!
+    productId: Product!
     quantity: Int!
     unitPrice: Float!
     productName: String!
-    totalPrice: Float!
     addedAt: String!
+    totalPrice: Float!
+    product: Product
   }
 
   type CartSummary {
@@ -427,7 +437,7 @@ const completeTypeDefs = `
     subtotal: Float!
   }
 
-  input AddToCartInput {
+  input CartInput {
     productId: ID!
     quantity: Int! = 1
   }
@@ -609,6 +619,9 @@ const completeTypeDefs = `
     message: String!
     suggestions: [ProductSuggestion!]
     analysis: QueryAnalysis
+    mode: String
+    addToCompare: Product
+    shouldCompare: Boolean
   }
 
   type QueryAnalysis {
@@ -619,6 +632,11 @@ const completeTypeDefs = `
     priceRange: String
     targetUser: String
     keywords: [String!]
+    productType: String
+    excludeBrands: [String!]
+    intent: String
+    query: String
+    category: String
   }
 
   enum MessageRole {
@@ -638,7 +656,109 @@ const completeTypeDefs = `
     preferredBrand: String
     userProfile: String
   }
+
+  # ===== PRODUCT COMPARISON TYPES =====
+  type ProductComparison {
+    products: [Product!]!
+    analysis: ComparisonAnalysis!
+    recommendations: [String!]!
+    createdAt: String!
+  }
+
+  type ComparisonAnalysis {
+    strengths: [ProductStrength!]!
+    differences: [ProductDifference!]!
+    similarities: [String!]!
+    bestValue: String
+    bestPerformance: String
+    bestCamera: String
+    bestBattery: String
+  }
+
+  type ProductStrength {
+    productId: ID!
+    productName: String!
+    strengths: [String!]!
+  }
+
+  type ProductDifference {
+    category: String!
+    product1: ComparisonItem!
+    product2: ComparisonItem!
+    product3: ComparisonItem
+  }
+
+  type ComparisonItem {
+    productId: ID!
+    productName: String!
+    value: String!
+    isBest: Boolean
+  }
+
+  input CompareProductsInput {
+    productIds: [ID!]!
+    userPreferences: String
+  }
+  
+  # ===== IMAGE SEARCH TYPES =====
+  type ImageSearchResult {
+    message: String!
+    suggestions: [ProductSuggestion]
+    analysis: QueryAnalysis
+  }
+  
+  input ImageSearchInput {
+    imageData: String!
+    imageType: String!
+  }
 `;
+
+// Image Search Resolvers
+const imageSearchResolvers = {
+  Mutation: {
+    searchByImage: async (_, { input }, { db }) => {
+      try {
+        console.log('🖼️ Image Search - Processing image...');
+        console.log('🖼️ Database context available:', !!db);
+        console.log('🖼️ Database models:', db ? Object.keys(db) : 'No db');
+        console.log('🖼️ Database structure:', db ? JSON.stringify(Object.keys(db), null, 2) : 'No db');
+        
+        // Extract base64 image data
+        const { imageData, imageType } = input;
+        
+        // Analyze image with Claude AI
+        const imageAnalysis = await analyzeImageWithAI(imageData, imageType);
+        console.log('🖼️ Image Analysis Result:', JSON.stringify(imageAnalysis, null, 2));
+        
+        // AI chỉ nhận dạng, không tìm kiếm
+        const detectedProduct = imageAnalysis.detectedProduct || 'sản phẩm điện tử';
+        console.log('🤖 AI detected:', detectedProduct);
+        
+        // Tạo message để thông báo nhận dạng và tự động tìm kiếm
+        const message = `Tôi nhận dạng được ${detectedProduct}. Đang tự động tìm kiếm ${detectedProduct} cho bạn...`;
+        
+        return {
+          message: message,
+          suggestions: [], // Không có suggestions, để chatbot tự tìm
+          analysis: {
+            intent: "search",
+            query: detectedProduct,
+            category: imageAnalysis.category,
+            brand: imageAnalysis.brand,
+            maxPrice: null,
+            minPrice: null,
+            features: [],
+            productType: detectedProduct,
+            excludeBrands: []
+          }
+        };
+      } catch (error) {
+        console.error('Image search error:', error);
+        throw new Error('Có lỗi xảy ra khi phân tích ảnh');
+      }
+    }
+  }
+};
 
 // Merge all resolvers
 const resolvers = _.merge(
@@ -654,6 +774,8 @@ const resolvers = _.merge(
   reviewsResolvers,
   reviewUploadResolvers,
   chatResolvers,
+  productComparisonResolvers,
+  imageSearchResolvers,
   googleAuthResolvers
 );
 

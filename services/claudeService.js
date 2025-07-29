@@ -10,19 +10,31 @@ const anthropic = new Anthropic({
 
 // Enhanced prompt for Claude API
 const createAnalysisPrompt = (message) => {
-    return `Bạn là chuyên gia tư vấn điện thoại thông minh của SmartShop. Hãy phân tích YÝ ĐỊNH và NGỮ CẢNH của khách hàng để đưa ra gợi ý chính xác.
+    return `Bạn là chuyên gia tư vấn điện thoại thông minh của SmartShop. Hãy phân tích YÊU CẦU của khách hàng để đưa ra gợi ý chính xác.
 
 NGÔN NGỮ: Trả lời bằng tiếng Việt thân thiện, tự nhiên.
 
 YÊU CẦU KHÁCH HÀNG: "${message}"
 
 🚨 QUAN TRỌNG - PHÂN TÍCH YÝ ĐỊNH:
-1. ❌ TỪ CHỐI/GHÉT: "ghét", "không thích", "tệ", "dở", "kém" → KHÔNG TÌM thương hiệu đó
-2. ❌ LOẠI TRỪ: "không muốn", "trừ ra", "ngoại trừ", "không phải" → LOẠI TRỪ
-3. ✅ MUỐN MUA: "mua", "tìm", "cần", "muốn", "gợi ý", "xem" → TÌM sản phẩm
-4. 🔍 LOẠI SẢN PHẨM: "điện thoại", "smartphone", "phone", "di động" → CHỈ TÌM ĐIỆN THOẠI
+1. 🔄 MODE SO SÁNH: "so sánh", "compare", "đối chiếu", "chế độ so sánh" → intent: "compare_mode"
+2. ➕ THÊM SẢN PHẨM: "thêm", "add", "cho vào", "đưa vào" → intent: "add_to_compare"
+3. ❌ TỪ CHỐI/GHÉT: "ghét", "không thích", "tệ", "dở", "kém" → intent: "exclude"
+4. ✅ MUỐN MUA: "mua", "tìm", "cần", "muốn", "gợi ý", "xem" → intent: "buy"
+5. 🔍 LOẠI SẢN PHẨM: "điện thoại", "smartphone", "phone", "di động" → productType: "phone"
 
 THƯƠNG HIỆU: Apple, Samsung, Xiaomi, OPPO, Vivo, Realme, Nokia
+
+LƯU Ý QUAN TRỌNG VỀ THƯƠNG HIỆU:
+- "Samsung", "Galaxy" → brand: "Samsung" (KHÔNG BAO GIỜ là Apple)
+- "iPhone", "Apple", "MacBook", "iPad" → brand: "Apple" (KHÔNG BAO GIỜ là Samsung)
+- "Xiaomi", "Redmi", "POCO" → brand: "Xiaomi"
+- "OPPO", "OnePlus" → brand: "OPPO"
+- "Vivo", "iQOO" → brand: "Vivo"
+- "Realme" → brand: "Realme"
+- "Nokia" → brand: "Nokia"
+
+TUYỆT ĐỐI KHÔNG NHẦM LẪN: Samsung không được phân tích thành Apple!
 
 FORMAT JSON:
 {
@@ -36,22 +48,34 @@ FORMAT JSON:
     "keywords": ["từ_khóa_tìm_kiếm"],
     "productType": "phone/null",
     "excludeBrands": ["thương_hiệu_bị_loại_trừ"],
-    "intent": "buy/exclude/neutral"
+    "intent": "buy/exclude/neutral/compare_mode/add_to_compare/compare_products",
+    "productName": "tên_sản_phẩm_cụ_thể_nếu_có",
+    "action": "search/add/compare/switch_mode"
   },
   "response": "câu_trả_lời_phù_hợp_với_ý_định",
   "suggestions": ["gợ_ý_phù_hợp"]
 }
 
 VÍ DỤ THÔNG MINH:
-❌ "Tôi ghét iPhone" → intent: "exclude", excludeBrands: ["Apple"], brand: null, response: "Tôi hiểu bạn không thích iPhone. Tôi có thể gợi ý điện thoại Samsung, Xiaomi hay thương hiệu khác?"
+🔄 "Chế độ so sánh" → intent: "compare_mode", action: "switch_mode", response: "Đã chuyển sang chế độ so sánh. Bạn có thể chọn tối đa 3 sản phẩm để so sánh."
 
-✅ "Mua điện thoại Samsung" → intent: "buy", brand: "Samsung", productType: "phone", excludeBrands: []
+➕ "Thêm iPhone 15" → intent: "add_to_compare", productName: "iPhone 15", action: "add", response: "Đang tìm iPhone 15 để thêm vào so sánh..."
 
-❌ "Laptop gaming" → intent: "neutral", productType: null, response: "Xin lỗi, chúng tôi chỉ chuyên điện thoại. Bạn có muốn xem điện thoại gaming không?"
+🔍 "So sánh" → intent: "compare_products", action: "compare", response: "Đang thực hiện so sánh các sản phẩm đã chọn..."
 
-✅ "Điện thoại không phải iPhone" → intent: "buy", excludeBrands: ["Apple"], productType: "phone"
+✅ "Tìm Samsung" → intent: "buy", brand: "Samsung", action: "search", response: "Đang tìm điện thoại Samsung cho bạn..."
 
-✅ "iPhone 15 dưới 25 triệu" → intent: "buy", brand: "Apple", maxPrice: 25000000, keywords: ["iPhone"]
+✅ "Samsung Galaxy" → intent: "buy", brand: "Samsung", productType: "phone", action: "search", response: "Đang tìm Samsung Galaxy cho bạn..."
+
+✅ "iPhone" → intent: "buy", brand: "Apple", productType: "phone", action: "search", response: "Đang tìm iPhone cho bạn..."
+
+✅ "iPhone 15" → intent: "buy", brand: "Apple", productType: "phone", keywords: ["iphone", "15"], action: "search", response: "Đang tìm iPhone 15 cho bạn..."
+
+✅ "iPhone 16 Pro" → intent: "buy", brand: "Apple", productType: "phone", keywords: ["iphone", "16", "pro"], action: "search", response: "Đang tìm iPhone 16 Pro cho bạn..."
+
+✅ "MacBook" → intent: "buy", brand: "Apple", productType: "laptop", keywords: ["macbook"], action: "search", response: "Đang tìm MacBook cho bạn..."
+
+LƯU Ý: Khi user tìm "iPhone 15" thì chỉ tìm iPhone 15, không tìm iPhone 16 hay MacBook!
 
 CHỈ trả về JSON, không thêm text khác.`;
 };
@@ -238,12 +262,51 @@ export async function filterProductsFromDB(analysis, db) {
         // Brand filter - use exact ObjectId match
         if (analysis.brand) {
             console.log('🔍 Looking for brand:', analysis.brand);
+            console.log('🔍 Brand type:', typeof analysis.brand);
+            console.log('🔍 Brand value:', JSON.stringify(analysis.brand));
+            
             const brand = await db.brands.findByName(analysis.brand);
             if (brand) {
                 console.log('✅ Found brand:', brand.name, 'ID:', brand._id);
                 conditions.brand = brand._id;
+                
+                // Additional product type filtering for Apple
+                if (analysis.brand.toLowerCase() === 'apple') {
+                    // If searching for iPhone, exclude MacBook and iPad
+                    if (analysis.keywords && analysis.keywords.some(k => k.toLowerCase().includes('iphone'))) {
+                        // Check for specific iPhone model
+                        const iphoneKeywords = analysis.keywords.filter(k => 
+                            k.toLowerCase().includes('iphone') || 
+                            /^\d+$/.test(k) || // numbers like 15, 16
+                            k.toLowerCase().includes('pro') ||
+                            k.toLowerCase().includes('max') ||
+                            k.toLowerCase().includes('plus')
+                        );
+                        
+                        if (iphoneKeywords.length > 0) {
+                            // Build specific iPhone search pattern
+                            const searchPattern = iphoneKeywords.join('|');
+                            conditions.name = { $regex: searchPattern, $options: 'i' };
+                            console.log('🔍 Apple + specific iPhone model detected: Searching for', searchPattern);
+                        } else {
+                            conditions.name = { $regex: 'iPhone', $options: 'i' };
+                            console.log('🔍 Apple + iPhone detected: Only searching for iPhone products');
+                        }
+                    }
+                    // If searching for MacBook, exclude iPhone and iPad
+                    else if (analysis.keywords && analysis.keywords.some(k => k.toLowerCase().includes('macbook'))) {
+                        conditions.name = { $regex: 'MacBook', $options: 'i' };
+                        console.log('🔍 Apple + MacBook detected: Only searching for MacBook products');
+                    }
+                    // If searching for iPad, exclude iPhone and MacBook
+                    else if (analysis.keywords && analysis.keywords.some(k => k.toLowerCase().includes('ipad'))) {
+                        conditions.name = { $regex: 'iPad', $options: 'i' };
+                        console.log('🔍 Apple + iPad detected: Only searching for iPad products');
+                    }
+                }
             } else {
                 console.log('❌ Brand not found:', analysis.brand);
+                console.log('🔍 Available brands in DB:', await db.brands.find({}));
             }
         }
         
@@ -283,20 +346,52 @@ export async function filterProductsFromDB(analysis, db) {
         
         // Add text search for product name if keywords contain brand names
         if (analysis.keywords && analysis.keywords.length > 0) {
-            const brandKeywords = ['iphone', 'samsung', 'xiaomi', 'oppo', 'vivo'];
-            const hasBrandKeyword = analysis.keywords.some(keyword => 
-                brandKeywords.includes(keyword.toLowerCase())
-            );
+            console.log('🔍 Keywords for search:', analysis.keywords);
             
-            if (hasBrandKeyword) {
-                // Search in product name for brand keywords
-                const searchTerms = analysis.keywords
-                    .filter(keyword => brandKeywords.includes(keyword.toLowerCase()))
-                    .join('|');
+            // If we have a specific brand, prioritize brand-specific search
+            if (analysis.brand) {
+                const brandKeywords = {
+                    'Apple': ['iphone', 'ipad', 'macbook', 'apple'],
+                    'Samsung': ['samsung', 'galaxy'],
+                    'Xiaomi': ['xiaomi', 'redmi', 'poco'],
+                    'OPPO': ['oppo', 'oneplus'],
+                    'Vivo': ['vivo', 'iqoo'],
+                    'Realme': ['realme'],
+                    'Nokia': ['nokia']
+                };
                 
-                if (searchTerms) {
-                    conditions.name = { $regex: searchTerms, $options: 'i' };
-                    console.log('🔍 Added name search for:', searchTerms);
+                const brandKey = Object.keys(brandKeywords).find(key => 
+                    key.toLowerCase() === analysis.brand.toLowerCase()
+                );
+                
+                if (brandKey) {
+                    const allowedKeywords = brandKeywords[brandKey];
+                    const matchingKeywords = analysis.keywords.filter(keyword => 
+                        allowedKeywords.includes(keyword.toLowerCase())
+                    );
+                    
+                    if (matchingKeywords.length > 0) {
+                        const searchTerms = matchingKeywords.join('|');
+                        conditions.name = { $regex: searchTerms, $options: 'i' };
+                        console.log('🔍 Added brand-specific name search for:', searchTerms);
+                    }
+                }
+            } else {
+                // Fallback to general brand keyword search
+                const brandKeywords = ['iphone', 'samsung', 'xiaomi', 'oppo', 'vivo'];
+                const hasBrandKeyword = analysis.keywords.some(keyword => 
+                    brandKeywords.includes(keyword.toLowerCase())
+                );
+                
+                if (hasBrandKeyword) {
+                    const searchTerms = analysis.keywords
+                        .filter(keyword => brandKeywords.includes(keyword.toLowerCase()))
+                        .join('|');
+                    
+                    if (searchTerms) {
+                        conditions.name = { $regex: searchTerms, $options: 'i' };
+                        console.log('🔍 Added general name search for:', searchTerms);
+                    }
                 }
             }
         }
@@ -338,12 +433,23 @@ export function generateProductSuggestions(products, analysis) {
                 const productName = product.name.toLowerCase();
                 const brandKeywords = ['iphone', 'samsung', 'xiaomi', 'oppo', 'vivo'];
                 
+                // Count how many keywords match
+                let matchedKeywords = 0;
+                let exactModelMatch = false;
+                
                 analysis.keywords.forEach(keyword => {
                     const lowerKeyword = keyword.toLowerCase();
                     if (productName.includes(lowerKeyword)) {
+                        matchedKeywords++;
+                        
+                        // Check for exact model match (e.g., "15" in "iPhone 15")
+                        if (/^\d+$/.test(keyword) && productName.includes(keyword)) {
+                            exactModelMatch = true;
+                        }
+                        
                         // Higher weight for brand keywords
                         if (brandKeywords.includes(lowerKeyword)) {
-                            relevance += 0.4;
+                            relevance += 0.3;
                             reasons.push(`Có thương hiệu "${keyword}"`);
                         } else {
                             relevance += 0.2;
@@ -351,6 +457,18 @@ export function generateProductSuggestions(products, analysis) {
                         }
                     }
                 });
+                
+                // Bonus for exact model match
+                if (exactModelMatch) {
+                    relevance += 0.3;
+                    reasons.push('Model chính xác');
+                }
+                
+                // Bonus for multiple keyword matches
+                if (matchedKeywords >= 2) {
+                    relevance += 0.2;
+                    reasons.push('Nhiều từ khóa phù hợp');
+                }
             }
             
             // Price relevance
@@ -430,4 +548,221 @@ export function generateResponseMessage(analysis, products) {
         console.error('❌ Error generating response message:', error);
         return "Đây là những sản phẩm phù hợp với yêu cầu của bạn:";
     }
+}
+
+// Product comparison analysis with Claude AI
+export async function analyzeProductComparison(products, userPreferences = '') {
+    try {
+        console.log('🤖 Analyzing product comparison with Claude');
+        
+        const productData = products.map(product => ({
+            name: product.name,
+            price: product.price,
+            description: product.description || '',
+            brand: product.brand?.name || '',
+            rating: product.rating || 0,
+            isFeatured: product.isFeatured
+        }));
+        
+        const prompt = createComparisonPrompt(productData, userPreferences);
+        
+        const response = await anthropic.messages.create({
+            model: 'claude-3-haiku-20240307',
+            max_tokens: 2000,
+            temperature: 0.1,
+            messages: [{
+                role: 'user',
+                content: prompt
+            }]
+        });
+
+        const aiResponse = response.content[0].text;
+        console.log('🔍 Claude comparison response:', aiResponse);
+
+        // Extract JSON from response
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            console.log('✅ Comparison analysis successful:', parsed);
+            return parsed;
+        } else {
+            throw new Error('No valid JSON found in Claude response');
+        }
+
+    } catch (error) {
+        console.warn('⚠️ Claude comparison analysis failed, using fallback:', error.message);
+        return generateFallbackComparison(products);
+    }
+}
+
+// Create comparison prompt for Claude
+function createComparisonPrompt(products, userPreferences) {
+    const productInfo = products.map((product, index) => `
+SẢN PHẨM ${index + 1}: ${product.name}
+- Thương hiệu: ${product.brand?.name || 'Không xác định'}
+- Giá: ${product.price.toLocaleString('vi-VN')} VNĐ
+- Mô tả: ${product.description}
+- Nổi bật: ${product.isFeatured ? 'Có' : 'Không'}
+`).join('\n');
+
+    return `Bạn là chuyên gia tư vấn điện thoại thông minh. Hãy phân tích và so sánh các sản phẩm sau:
+
+${productInfo}
+
+${userPreferences ? `YÊU CẦU NGƯỜI DÙNG: ${userPreferences}` : ''}
+
+PHÂN TÍCH CHI TIẾT:
+1. Đọc kỹ phần mô tả của từng sản phẩm để trích xuất thông tin thực tế
+2. Điểm mạnh của từng sản phẩm
+3. So sánh tính năng chính (camera, pin, hiệu năng, thiết kế)
+4. So sánh giá trị tiền bạc
+5. Khuyến nghị phù hợp với nhu cầu
+
+LƯU Ý: Phần mô tả là JSON object có cấu trúc như sau:
+{
+  "manHinh": {
+    "kichThuoc": "6.36 inch",
+    "congNghe": "Dynamic AMOLED 2X",
+    "doPhanGiai": "1440x3088 pixel",
+    "tanSoQuet": "120Hz ProMotion"
+  },
+  "chip": "Snapdragon 8 Gen 3",
+  "ram": "12GB",
+  "camera": {
+    "chinh": {
+      "doPhanGiai": "50MP",
+      "khauDo": "f/1.8"
+    }
+  },
+  "pin": "4000 mAh",
+  "sac": "45W",
+  "heDieuHanh": "Android 15"
+}
+
+Hãy trích xuất chính xác từ JSON:
+- Màn hình: manHinh.kichThuoc (ví dụ: "6.36 inch")
+- Pin: pin (ví dụ: "4000 mAh")
+- Camera: camera.chinh.doPhanGiai (ví dụ: "50MP")
+- Chip: chip (ví dụ: "Snapdragon 8 Gen 3")
+- RAM: ram (ví dụ: "12GB")
+
+FORMAT JSON:
+{
+  "strengths": [
+    {
+      "productId": "index_0",
+      "productName": "tên sản phẩm",
+      "strengths": ["điểm mạnh 1", "điểm mạnh 2"]
+    }
+  ],
+  "differences": [
+    {
+      "category": "Camera",
+      "product1": {
+        "productId": "index_0",
+        "productName": "tên sản phẩm",
+        "value": "mô tả camera",
+        "isBest": true/false
+      },
+      "product2": {
+        "productId": "index_1", 
+        "productName": "tên sản phẩm",
+        "value": "mô tả camera",
+        "isBest": true/false
+      }
+    }
+  ],
+  "similarities": ["tính năng chung 1", "tính năng chung 2"],
+  "bestValue": "Tên sản phẩm có giá tốt nhất (ví dụ: Samsung Galaxy S25)",
+  "bestPerformance": "Tên sản phẩm có hiệu năng tốt nhất (ví dụ: iPhone 16 Pro)", 
+  "bestCamera": "Tên sản phẩm có camera tốt nhất (ví dụ: iPhone 16 Pro)",
+  "bestBattery": "Tên sản phẩm có pin tốt nhất (ví dụ: Samsung Galaxy S25)",
+  "recommendations": ["khuyến nghị 1", "khuyến nghị 2"],
+  "productSpecs": {
+    "index_0": {
+      "screen": "Kích thước màn hình (ví dụ: 6.36 inch)",
+      "battery": "Dung lượng pin (ví dụ: 4000 mAh)",
+      "camera": "Độ phân giải camera chính (ví dụ: 50MP)",
+      "performance": "Chip xử lý (ví dụ: Snapdragon 8 Gen 3)",
+      "ram": "Dung lượng RAM (ví dụ: 12GB)"
+    },
+    "index_1": {
+      "screen": "Kích thước màn hình",
+      "battery": "Dung lượng pin", 
+      "camera": "Độ phân giải camera chính",
+      "performance": "Chip xử lý",
+      "ram": "Dung lượng RAM"
+    }
+  }
+}
+
+LƯU Ý QUAN TRỌNG: 
+- Tất cả text phải bằng TIẾNG VIỆT
+- Không được dùng tiếng Anh trong bất kỳ field nào
+- Trả về JSON hoàn toàn bằng tiếng Việt
+
+CHỈ trả về JSON, không thêm text khác.`;
+}
+
+// Fallback comparison analysis
+function generateFallbackComparison(products) {
+    const strengths = products.map((product, index) => ({
+        productId: `index_${index}`,
+        productName: product.name,
+        strengths: [
+            `Thương hiệu ${product.brand?.name || 'nổi tiếng'}`,
+            `Giá ${product.price < 15000000 ? 'phù hợp' : 'cao cấp'}`,
+            product.isFeatured ? 'Sản phẩm nổi bật' : 'Chất lượng tốt'
+        ]
+    }));
+
+    const differences = [
+        {
+            category: "Giá cả",
+            product1: {
+                productId: "index_0",
+                productName: products[0].name,
+                value: `${products[0].price.toLocaleString('vi-VN')} VNĐ`,
+                isBest: products[0].price === Math.min(...products.map(p => p.price))
+            },
+            product2: {
+                productId: "index_1",
+                productName: products[1].name,
+                value: `${products[1].price.toLocaleString('vi-VN')} VNĐ`,
+                isBest: products[1].price === Math.min(...products.map(p => p.price))
+            }
+        }
+    ];
+
+    if (products.length === 3) {
+        differences[0].product3 = {
+            productId: "index_2",
+            productName: products[2].name,
+            value: `${products[2].price.toLocaleString('vi-VN')} VNĐ`,
+            isBest: products[2].price === Math.min(...products.map(p => p.price))
+        };
+    }
+
+    const similarities = [
+        "Đều là điện thoại thông minh",
+        "Có camera chất lượng cao",
+        "Pin trâu, sạc nhanh"
+    ];
+
+    const minPriceIndex = products.findIndex(p => p.price === Math.min(...products.map(p => p.price)));
+
+    return {
+        strengths,
+        differences,
+        similarities,
+        bestValue: products[minPriceIndex]?.name || "Không xác định",
+        bestPerformance: products[0]?.name || "Không xác định",
+        bestCamera: products[0]?.name || "Không xác định", 
+        bestBattery: products[0]?.name || "Không xác định",
+        recommendations: [
+            "Nên xem xét nhu cầu sử dụng cụ thể",
+            "So sánh thêm về tính năng camera và pin",
+            "Kiểm tra đánh giá từ người dùng thực tế"
+        ]
+    };
 } 

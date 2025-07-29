@@ -17,6 +17,9 @@ export const typeDef = `
     message: String!
     suggestions: [ProductSuggestion!]
     analysis: QueryAnalysis
+    mode: String
+    addToCompare: Product
+    shouldCompare: Boolean
   }
 
   type QueryAnalysis {
@@ -77,11 +80,64 @@ export const resolvers = {
         const analysis = await analyzeUserQuery(message);
         console.log('🔥 FRONTEND CALL - Analysis result:', JSON.stringify(analysis, null, 2));
         
-        // Get products from database based on analysis
+        const intent = analysis.analysis?.intent;
+        const action = analysis.analysis?.action;
+        
+        // Handle different intents
+        if (intent === 'compare_mode') {
+          return {
+            message: analysis.response || "Đã chuyển sang chế độ so sánh. Bạn có thể chọn tối đa 3 sản phẩm để so sánh.",
+            suggestions: [],
+            analysis: analysis.analysis,
+            mode: 'compare'
+          };
+        }
+        
+        if (intent === 'add_to_compare') {
+          const productName = analysis.analysis?.productName;
+          if (productName) {
+            // Search for the specific product
+            const searchAnalysis = {
+              ...analysis.analysis,
+              intent: 'buy',
+              keywords: [productName]
+            };
+            const products = await filterProductsFromDB(searchAnalysis, context.db);
+            
+            if (products.length > 0) {
+              const product = products[0]; // Get the first match
+              return {
+                message: `✅ Đã thêm "${product.name}" vào danh sách so sánh. Bạn có thể thêm thêm sản phẩm hoặc gõ "So sánh" để xem kết quả.`,
+                suggestions: [],
+                analysis: analysis.analysis,
+                mode: 'compare',
+                addToCompare: product
+              };
+            } else {
+              return {
+                message: `❌ Không tìm thấy sản phẩm "${productName}". Vui lòng thử tìm kiếm với tên khác.`,
+                suggestions: [],
+                analysis: analysis.analysis,
+                mode: 'compare'
+              };
+            }
+          }
+        }
+        
+        if (intent === 'compare_products') {
+          // This will be handled by frontend with stored products
+          return {
+            message: "Đang thực hiện so sánh các sản phẩm đã chọn...",
+            suggestions: [],
+            analysis: analysis.analysis,
+            mode: 'compare',
+            shouldCompare: true
+          };
+        }
+        
+        // Default search behavior
         const products = await filterProductsFromDB(analysis.analysis, context.db);
         console.log('🔥 FRONTEND CALL - Found products count:', products.length);
-        console.log('🔥 FRONTEND CALL - First 3 products:', products.slice(0, 3).map(p => ({ name: p.name, price: p.price, brand: p.brand?.name })));
-        console.log('🔥 FRONTEND CALL - All product names:', products.map(p => p.name));
         
         // Generate product suggestions
         const suggestions = generateProductSuggestions(products, analysis.analysis);
@@ -94,7 +150,8 @@ export const resolvers = {
         const result = {
           message: responseMessage,
           suggestions,
-          analysis: analysis.analysis
+          analysis: analysis.analysis,
+          mode: intent === 'compare_mode' ? 'compare' : 'search'
         };
         
         console.log('🔥 FRONTEND CALL - Final result suggestions count:', result.suggestions.length);
