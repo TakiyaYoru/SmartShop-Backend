@@ -1,4 +1,4 @@
-import { Category, User, Product, Brand, Cart, Order, OrderItem, Review } from "./models/index.js";
+import { Category, User, Product, Brand, Cart, Order, OrderItem, Review, Wishlist } from "./models/index.js";
 import mongoose from "mongoose";
 
 // Helper function to build sort options from GraphQL enum
@@ -1314,6 +1314,219 @@ const db = {
         };
       } catch (error) {
         console.error('Error in reviews.getPendingAdminReviews:', error);
+        throw error;
+      }
+    }
+  },
+
+  // Wishlist methods
+  wishlists: {
+    // Check if product is in user's wishlist
+    async findByUserAndProduct(userId, productId) {
+      try {
+        return await Wishlist.findOne({ userId, productId });
+      } catch (error) {
+        console.error('Error in wishlists.findByUserAndProduct:', error);
+        return null;
+      }
+    },
+
+    // Get user's wishlist with pagination
+    async getByUser(userId, { first = 20, offset = 0 } = {}) {
+      try {
+        const totalCount = await Wishlist.countDocuments({ userId });
+        const items = await Wishlist.find({ userId })
+          .sort({ displayOrder: 1, addedAt: -1 })
+          .skip(offset)
+          .limit(first)
+          .lean();
+
+        return {
+          nodes: items,
+          totalCount,
+          hasNextPage: offset + first < totalCount,
+          hasPreviousPage: offset > 0
+        };
+      } catch (error) {
+        console.error('Error in wishlists.getByUser:', error);
+        throw error;
+      }
+    },
+
+    // Get wishlist item count for user
+    async getItemCount(userId) {
+      try {
+        return await Wishlist.countDocuments({ userId });
+      } catch (error) {
+        console.error('Error in wishlists.getItemCount:', error);
+        return 0;
+      }
+    },
+
+    // Add product to wishlist
+    async addToWishlist(userId, productId, productSnapshot) {
+      try {
+        const wishlistItem = new Wishlist({
+          userId,
+          productId,
+          productSnapshot
+        });
+        return await wishlistItem.save();
+      } catch (error) {
+        console.error('Error in wishlists.addToWishlist:', error);
+        if (error.code === 11000) {
+          throw new Error('Product already in wishlist');
+        }
+        throw error;
+      }
+    },
+
+    // Remove product from wishlist
+    async removeFromWishlist(userId, productId) {
+      try {
+        const result = await Wishlist.deleteOne({ userId, productId });
+        return result.deletedCount > 0;
+      } catch (error) {
+        console.error('Error in wishlists.removeFromWishlist:', error);
+        throw error;
+      }
+    },
+
+    // Remove multiple products from wishlist
+    async removeMultiple(userId, productIds) {
+      try {
+        const result = await Wishlist.deleteMany({ 
+          userId, 
+          productId: { $in: productIds } 
+        });
+        return result.deletedCount > 0;
+      } catch (error) {
+        console.error('Error in wishlists.removeMultiple:', error);
+        throw error;
+      }
+    },
+
+    // Update display order - improved logic
+    async updateDisplayOrder(itemId, userId, newOrder) {
+      try {
+        const item = await Wishlist.findOne({ _id: itemId, userId });
+        if (!item) {
+          throw new Error('Wishlist item not found');
+        }
+
+        const currentOrder = item.displayOrder;
+        
+        // Nếu thứ tự không thay đổi, không cần làm gì
+        if (currentOrder === newOrder) {
+          return item;
+        }
+
+        // Lấy tất cả items của user, sắp xếp theo displayOrder
+        const allItems = await Wishlist.find({ userId })
+          .sort({ displayOrder: 1, addedAt: -1 })
+          .lean();
+
+        // Tìm index của item hiện tại
+        const currentIndex = allItems.findIndex(item => item._id.toString() === itemId);
+        if (currentIndex === -1) {
+          throw new Error('Item not found in wishlist');
+        }
+
+        // Tính toán newIndex dựa trên newOrder
+        let newIndex = Math.max(0, Math.min(newOrder - 1, allItems.length - 1));
+
+        // Nếu di chuyển lên (newOrder < currentOrder)
+        if (newOrder < currentOrder) {
+          // Cập nhật displayOrder của các items từ newIndex đến currentIndex-1
+          for (let i = newIndex; i < currentIndex; i++) {
+            await Wishlist.updateOne(
+              { _id: allItems[i]._id },
+              { $set: { displayOrder: allItems[i].displayOrder + 1 } }
+            );
+          }
+        }
+        // Nếu di chuyển xuống (newOrder > currentOrder)
+        else if (newOrder > currentOrder) {
+          // Cập nhật displayOrder của các items từ currentIndex+1 đến newIndex
+          for (let i = currentIndex + 1; i <= newIndex; i++) {
+            await Wishlist.updateOne(
+              { _id: allItems[i]._id },
+              { $set: { displayOrder: allItems[i].displayOrder - 1 } }
+            );
+          }
+        }
+
+        // Cập nhật displayOrder của item được di chuyển
+        item.displayOrder = newOrder;
+        return await item.save();
+      } catch (error) {
+        console.error('Error in wishlists.updateDisplayOrder:', error);
+        throw error;
+      }
+    },
+
+    // Move item up in wishlist
+    async moveItemUp(itemId, userId) {
+      try {
+        const item = await Wishlist.findOne({ _id: itemId, userId });
+        if (!item) {
+          throw new Error('Wishlist item not found');
+        }
+
+        // Tìm item có displayOrder nhỏ hơn 1
+        const previousItem = await Wishlist.findOne({
+          userId,
+          displayOrder: item.displayOrder - 1
+        });
+
+        if (!previousItem) {
+          // Đã ở đầu danh sách
+          return item;
+        }
+
+        // Hoán đổi displayOrder
+        await Wishlist.updateOne(
+          { _id: previousItem._id },
+          { $set: { displayOrder: item.displayOrder } }
+        );
+
+        item.displayOrder = previousItem.displayOrder;
+        return await item.save();
+      } catch (error) {
+        console.error('Error in wishlists.moveItemUp:', error);
+        throw error;
+      }
+    },
+
+    // Move item down in wishlist
+    async moveItemDown(itemId, userId) {
+      try {
+        const item = await Wishlist.findOne({ _id: itemId, userId });
+        if (!item) {
+          throw new Error('Wishlist item not found');
+        }
+
+        // Tìm item có displayOrder lớn hơn 1
+        const nextItem = await Wishlist.findOne({
+          userId,
+          displayOrder: item.displayOrder + 1
+        });
+
+        if (!nextItem) {
+          // Đã ở cuối danh sách
+          return item;
+        }
+
+        // Hoán đổi displayOrder
+        await Wishlist.updateOne(
+          { _id: nextItem._id },
+          { $set: { displayOrder: item.displayOrder } }
+        );
+
+        item.displayOrder = nextItem.displayOrder;
+        return await item.save();
+      } catch (error) {
+        console.error('Error in wishlists.moveItemDown:', error);
         throw error;
       }
     }

@@ -7,6 +7,7 @@ import { CartSchema } from "./cart.js";
 import { OrderSchema } from "./order.js";
 import { OrderItemSchema } from "./orderItem.js"; 
 import { Review } from "./review.js";
+import { WishlistSchema } from "./wishlist.js";
 
 export const Category = mongoose.model("Category", CategorySchema);
 export const Product = mongoose.model("Product", ProductSchema);
@@ -15,4 +16,5 @@ export const Brand = mongoose.model("Brand", BrandSchema);
 export const Cart = mongoose.model("Cart", CartSchema); 
 export const Order = mongoose.model("Order", OrderSchema);
 export const OrderItem = mongoose.model("OrderItem", OrderItemSchema);
+export const Wishlist = mongoose.model("Wishlist", WishlistSchema);
 export { Review };

@@ -16,6 +16,7 @@ import { resolvers as reviewsResolvers } from "./reviews.js";
 import { resolvers as reviewUploadResolvers } from "./reviewUpload.js";
 import { resolvers as chatResolvers } from "./chat.js";
 import { resolvers as productComparisonResolvers } from "./productComparison.js";
+import { resolvers as wishlistResolvers } from "./wishlist.js";
 // import { imageSearchResolvers } from "./imageSearch.js";
 import { resolvers as googleAuthResolvers } from "./googleAuth.js";
 import { analyzeImageWithAI, searchProductsByImageAnalysis } from "../services/imageAnalysisService.js";
@@ -86,15 +87,20 @@ const completeTypeDefs = `
     getOrderStats: OrderStats
     
     # Reviews - ALL RESOLVERS INCLUDED
-    getProductReviews(productId: ID!): [Review]
+    getProductReviews(productId: ID!, filter: ReviewFilter): ReviewConnection!
     getProductAverageRating(productId: ID!): Float
     getProductReviewStats(productId: ID!): ReviewStats
-    canUserReviewProduct(productId: ID!): CanReviewResponse
-    getAllReviewsForAdmin: [Review]
-    getPendingAdminReviews: [Review]
+    canUserReviewProduct(productId: ID!): ReviewEligibility
+    getAllReviewsForAdmin(filter: ReviewFilter): ReviewConnection!
+    getPendingAdminReviews(filter: ReviewFilter): ReviewConnection!
     
     # Chat
     chatHistory(userId: ID!): [ChatMessage]
+    
+    # Wishlist
+    isProductInWishlist(productId: ID!): Boolean!
+    getMyWishlist(first: Int = 20, offset: Int = 0): WishlistConnection!
+    getWishlistItemCount: Int!
   }
   
   type Mutation {
@@ -159,6 +165,14 @@ const completeTypeDefs = `
     
     # Image Search
     searchByImage(input: ImageSearchInput!): ImageSearchResult!
+    
+    # Wishlist
+    addToWishlist(productId: ID!): WishlistItem!
+    removeFromWishlist(productId: ID!): Boolean!
+    reorderWishlist(input: ReorderWishlistInput!): WishlistItem!
+    moveWishlistItemUp(itemId: ID!): WishlistItem!
+    moveWishlistItemDown(itemId: ID!): WishlistItem!
+    removeMultipleFromWishlist(productIds: [ID!]!): Boolean!
   }
 
   # ===== GOOGLE AUTH TYPES =====
@@ -422,7 +436,7 @@ const completeTypeDefs = `
   type CartItem {
     _id: ID!
     userId: ID!
-    productId: Product!
+    productId: ID!
     quantity: Int!
     unitPrice: Float!
     productName: String!
@@ -438,6 +452,11 @@ const completeTypeDefs = `
   }
 
   input CartInput {
+    productId: ID!
+    quantity: Int! = 1
+  }
+
+  input AddToCartInput {
     productId: ID!
     quantity: Int! = 1
   }
@@ -556,6 +575,39 @@ const completeTypeDefs = `
     notes: String
   }
 
+  # ===== WISHLIST TYPES =====
+  type ProductSnapshot {
+    name: String
+    price: Float
+    originalPrice: Float
+    images: [String]
+    sku: String
+    brand: String
+    category: String
+  }
+
+  type WishlistItem {
+    _id: ID!
+    userId: ID!
+    productId: ID!
+    displayOrder: Int!
+    addedAt: String!
+    productSnapshot: ProductSnapshot
+    product: Product
+  }
+
+  type WishlistConnection {
+    nodes: [WishlistItem!]!
+    totalCount: Int!
+    hasNextPage: Boolean!
+    hasPreviousPage: Boolean!
+  }
+
+  input ReorderWishlistInput {
+    itemId: ID!
+    newOrder: Int!
+  }
+
   # ===== REVIEW TYPES =====
   type Review {
     _id: ID!
@@ -588,9 +640,20 @@ const completeTypeDefs = `
     five: Int!
   }
 
-  type CanReviewResponse {
+  type ReviewConnection {
+    items: [Review!]!
+    totalCount: Int!
+  }
+
+  type ReviewEligibility {
     canReview: Boolean!
     reason: String
+  }
+
+  input ReviewFilter {
+    rating: Int
+    first: Int
+    offset: Int
   }
 
   input ReviewInput {
@@ -775,6 +838,7 @@ const resolvers = _.merge(
   reviewUploadResolvers,
   chatResolvers,
   productComparisonResolvers,
+  wishlistResolvers,
   imageSearchResolvers,
   googleAuthResolvers
 );
