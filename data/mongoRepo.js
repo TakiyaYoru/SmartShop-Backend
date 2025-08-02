@@ -1037,6 +1037,16 @@ const db = {
     async hasUserPurchasedProduct(userId, productId) {
       // Cho phép mọi user đều có thể review mọi sản phẩm
       return true;
+    },
+
+    // 🆕 NEW: Reports methods
+    aggregate: async (pipeline) => {
+      try {
+        return await Order.aggregate(pipeline);
+      } catch (error) {
+        console.error('Error in orders.aggregate:', error);
+        throw error;
+      }
     }
 
   },
@@ -1106,6 +1116,16 @@ const db = {
         return summary;
       } catch (error) {
         console.error('Error getting order items summary:', error);
+        throw error;
+      }
+    },
+
+    // 🆕 NEW: Reports methods
+    aggregate: async (pipeline) => {
+      try {
+        return await OrderItem.aggregate(pipeline);
+      } catch (error) {
+        console.error('Error in orderItems.aggregate:', error);
         throw error;
       }
     }

@@ -17,6 +17,7 @@ import { resolvers as reviewUploadResolvers } from "./reviewUpload.js";
 import { resolvers as chatResolvers } from "./chat.js";
 import { resolvers as productComparisonResolvers } from "./productComparison.js";
 import { resolvers as wishlistResolvers } from "./wishlist.js";
+import { resolvers as reportsResolvers } from "./reports.js";
 // import { imageSearchResolvers } from "./imageSearch.js";
 import { resolvers as googleAuthResolvers } from "./googleAuth.js";
 import { analyzeImageWithAI, searchProductsByImageAnalysis } from "../services/imageAnalysisService.js";
@@ -101,6 +102,17 @@ const completeTypeDefs = `
     isProductInWishlist(productId: ID!): Boolean!
     getMyWishlist(first: Int = 20, offset: Int = 0): WishlistConnection!
     getWishlistItemCount: Int!
+    
+    # Reports
+    getMonthlyReport(year: Int!): [MonthlyReport!]!
+    getSalesReport(
+      dateRange: DateRangeInput!
+      first: Int
+      offset: Int
+      search: String
+    ): SalesReportConnection!
+    getReportStats(dateRange: DateRangeInput!): ReportStats!
+    getProductOrders(productId: ID!, dateRange: DateRangeInput!): [ProductOrder!]!
   }
   
   type Mutation {
@@ -774,6 +786,60 @@ const completeTypeDefs = `
     imageData: String!
     imageType: String!
   }
+
+  # ===== REPORTS TYPES =====
+  type MonthlyReport {
+    month: String!
+    year: Int!
+    revenue: Float!
+    orderCount: Int!
+    productCount: Int!
+  }
+
+  type SalesReport {
+    productId: ID!
+    productName: String!
+    productSku: String!
+    category: String!
+    brand: String!
+    quantitySold: Int!
+    revenue: Float!
+    revenuePercentage: Float!
+  }
+
+  type ReportStats {
+    totalRevenue: Float!
+    totalOrders: Int!
+    totalProducts: Int!
+    averageOrderValue: Float!
+  }
+
+  type SalesReportConnection {
+    nodes: [SalesReport!]!
+    totalCount: Int!
+    hasNextPage: Boolean!
+    hasPreviousPage: Boolean!
+  }
+
+  input DateRangeInput {
+    fromDate: String!
+    toDate: String!
+  }
+
+  type ProductOrder {
+    orderNumber: String!
+    orderDate: String!
+    status: String!
+    customerInfo: CustomerInfo!
+    quantity: Int!
+    unitPrice: Float!
+    totalPrice: Float!
+  }
+
+  type CustomerInfo {
+    fullName: String!
+    phone: String!
+  }
 `;
 
 // Image Search Resolvers
@@ -839,6 +905,7 @@ const resolvers = _.merge(
   chatResolvers,
   productComparisonResolvers,
   wishlistResolvers,
+  reportsResolvers,
   imageSearchResolvers,
   googleAuthResolvers
 );

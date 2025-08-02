@@ -115,6 +115,12 @@ export const permissions = {
     getOrder: isAdminOrManager,
     getOrderStats: isAdminOrManager,
     
+    // Reports queries - Admin only
+      getMonthlyReport: isAdmin,
+  getSalesReport: isAdmin,
+  getReportStats: isAdmin,
+  getProductOrders: isAdmin,
+    
     // Review queries
     getProductReviews: isAuthenticated,
     getProductAverageRating: isAuthenticated,
